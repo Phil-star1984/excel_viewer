@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <style>
+        /* Anpassung der DataTables-Styles */
+        .dataTables_wrapper {
+            color: white;
+            margin-top: 20px; /* Abstand zur Tabelle */
+        }
+        .dataTables_filter label,
+        .dataTables_length label,
+        .dataTables_info {
+            color: white !important;
+        }
+        .dataTables_paginate .paginate_button {
+            color: white !important;
+        }
+        table.dataTable tbody tr {
+            background-color: #2d3748 !important;
+            border-bottom: 1px solid #4a5568 !important; /* Dünne Trennlinien für klare Abtrennung */
+        }
+        table.dataTable tbody tr:hover {
+            background-color: #3B485E !important;
+        }
+        table.dataTable th, table.dataTable td {
+            border: 1px solid #4a5568 !important; /* Zellen klar voneinander abtrennen */
+            padding: 10px;
+        }
+        table.dataTable thead th {
+            background-color: #1e3a8a !important;
+            color: white !important;
+            border-bottom: 2px solid #4a5568 !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center p-6">
+    <h2 class="text-3xl font-bold mb-4">Excel Viewer</h2>
+    <input type="file" id="fileInput" accept=".xlsx, .csv" class="p-2 border border-gray-300 rounded-lg bg-gray-800 text-white cursor-pointer" />
+    <br><br>
+    <div class="w-full max-w-6xl overflow-auto rounded-lg shadow-lg bg-gray-800 p-4">
+        <table id="excelTable" class="min-w-full text-white mt-4"></table>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            let file = event.target.files[0];
+            let reader = new FileReader();
+            
+            reader.onload = function(e) {
+                let data = new Uint8Array(e.target.result);
+                let workbook = XLSX.read(data, { type: 'array' });
+                let sheet = workbook.Sheets[workbook.SheetNames[0]];
+                let json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                
+                let table = '<thead class="bg-blue-600 text-white">';
+                table += '<tr>';
+                json[0].forEach(header => table += `<th class="p-3 text-left">${header}</th>`);
+                table += '</tr></thead><tbody>';
+                
+                json.slice(1).forEach(row => {
+                    table += '<tr class="bg-gray-700 hover:bg-gray-600 border-b border-gray-500">';
+                    row.forEach(cell => table += `<td class="p-3 border border-gray-600">${cell || ''}</td>`);
+                    table += '</tr>';
+                });
+                table += '</tbody>';
+                
+                document.getElementById('excelTable').innerHTML = table;
+                $('#excelTable').DataTable({
+                    "paging": true,
+                    "searching": true,
+                    "info": true,
+                    "language": {
+                        "search": "Suchen:",
+                        "lengthMenu": "Zeige _MENU_ Einträge",
+                        "info": "Zeige _START_ bis _END_ von _TOTAL_ Einträgen",
+                        "paginate": {
+                            "first": "Erste",
+                            "last": "Letzte",
+                            "next": "Nächste",
+                            "previous": "Vorherige"
+                        }
+                    }
+                });
+            };
+            
+            reader.readAsArrayBuffer(file);
+        });
+    </script>
+</body>
+</html>
+
