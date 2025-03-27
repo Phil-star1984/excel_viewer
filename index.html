@@ -13,7 +13,7 @@
         /* Anpassung der DataTables-Styles */
         .dataTables_wrapper {
             color: white;
-            margin-top: 20px; /* Abstand zur Tabelle */
+            margin-top: 20px;
         }
         .dataTables_filter label,
         .dataTables_length label,
@@ -25,13 +25,13 @@
         }
         table.dataTable tbody tr {
             background-color: #2d3748 !important;
-            border-bottom: 1px solid #4a5568 !important; /* Dünne Trennlinien für klare Abtrennung */
+            border-bottom: 1px solid #4a5568 !important;
         }
         table.dataTable tbody tr:hover {
             background-color: #3B485E !important;
         }
         table.dataTable th, table.dataTable td {
-            border: 1px solid #4a5568 !important; /* Zellen klar voneinander abtrennen */
+            border: 1px solid #4a5568 !important;
             padding: 10px;
         }
         table.dataTable thead th {
@@ -39,56 +39,130 @@
             color: white !important;
             border-bottom: 2px solid #4a5568 !important;
         }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .error-message {
+            display: none;
+            color: #ff6b6b;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background-color: rgba(255, 107, 107, 0.1);
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col items-center p-6">
     <h2 class="text-3xl font-bold mb-4">Excel Viewer</h2>
-    <input type="file" id="fileInput" accept=".xlsx, .csv" class="p-2 border border-gray-300 rounded-lg bg-gray-800 text-white cursor-pointer" />
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="p-2 border border-gray-300 rounded-lg bg-gray-800 text-white cursor-pointer" />
+    <div id="errorMessage" class="error-message"></div>
+    <div id="loading" class="loading">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+        <p class="mt-2">Loading file...</p>
+    </div>
     <br><br>
     <div class="w-full overflow-auto rounded-lg shadow-lg bg-gray-800 p-4">
         <table id="excelTable" class="w-full text-white mt-4"></table>
     </div>
 
     <script>
+        let dataTable = null;
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function validateFile(file) {
+            const validTypes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv'];
+            if (!validTypes.includes(file.type)) {
+                showError('Please upload a valid Excel or CSV file.');
+                return false;
+            }
+            return true;
+        }
+
         document.getElementById('fileInput').addEventListener('change', function(event) {
-            let file = event.target.files[0];
-            let reader = new FileReader();
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!validateFile(file)) {
+                event.target.value = '';
+                return;
+            }
+
+            // Reset error message and show loading
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+
+            // Destroy existing DataTable if it exists
+            if (dataTable) {
+                dataTable.destroy();
+                dataTable = null;
+            }
+
+            const reader = new FileReader();
             
             reader.onload = function(e) {
-                let data = new Uint8Array(e.target.result);
-                let workbook = XLSX.read(data, { type: 'array' });
-                let sheet = workbook.Sheets[workbook.SheetNames[0]];
-                let json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                
-                let table = '<thead class="bg-blue-600 text-white">';
-                table += '<tr>';
-                json[0].forEach(header => table += `<th class="p-3 text-left">${header}</th>`);
-                table += '</tr></thead><tbody>';
-                
-                json.slice(1).forEach(row => {
-                    table += '<tr class="bg-gray-700 hover:bg-gray-600 border-b border-gray-500">';
-                    row.forEach(cell => table += `<td class="p-3 border border-gray-600">${cell || ''}</td>`);
-                    table += '</tr>';
-                });
-                table += '</tbody>';
-                
-                document.getElementById('excelTable').innerHTML = table;
-                $('#excelTable').DataTable({
-                    "paging": true,
-                    "searching": true,
-                    "info": true,
-                    "language": {
-                        "search": "Suchen:",
-                        "lengthMenu": "Zeige _MENU_ Einträge",
-                        "info": "Zeige _START_ bis _END_ von _TOTAL_ Einträgen",
-                        "paginate": {
-                            "first": "Erste",
-                            "last": "Letzte",
-                            "next": "Nächste",
-                            "previous": "Vorherige"
-                        }
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    if (!workbook.SheetNames.length) {
+                        throw new Error('No sheets found in the file');
                     }
-                });
+
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                    if (!json || json.length === 0) {
+                        throw new Error('No data found in the file');
+                    }
+
+                    let table = '<thead class="bg-blue-600 text-white">';
+                    table += '<tr>';
+                    json[0].forEach(header => table += `<th class="p-3 text-left">${header || ''}</th>`);
+                    table += '</tr></thead><tbody>';
+                    
+                    json.slice(1).forEach(row => {
+                        table += '<tr class="bg-gray-700 hover:bg-gray-600 border-b border-gray-500">';
+                        row.forEach(cell => table += `<td class="p-3 border border-gray-600">${cell || ''}</td>`);
+                        table += '</tr>';
+                    });
+                    table += '</tbody>';
+                    
+                    document.getElementById('excelTable').innerHTML = table;
+                    document.getElementById('loading').style.display = 'none';
+
+                    dataTable = $('#excelTable').DataTable({
+                        "paging": true,
+                        "searching": true,
+                        "info": true,
+                        "language": {
+                            "search": "Suchen:",
+                            "lengthMenu": "Zeige _MENU_ Einträge",
+                            "info": "Zeige _START_ bis _END_ von _TOTAL_ Einträgen",
+                            "paginate": {
+                                "first": "Erste",
+                                "last": "Letzte",
+                                "next": "Nächste",
+                                "previous": "Vorherige"
+                            }
+                        }
+                    });
+                } catch (error) {
+                    showError(`Error processing file: ${error.message}`);
+                    event.target.value = '';
+                }
+            };
+            
+            reader.onerror = function() {
+                showError('Error reading file. Please try again.');
+                event.target.value = '';
             };
             
             reader.readAsArrayBuffer(file);
