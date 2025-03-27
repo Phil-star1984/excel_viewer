@@ -52,6 +52,32 @@
             border-radius: 5px;
             background-color: rgba(255, 107, 107, 0.1);
         }
+
+        /* Text Selection Styles */
+        ::selection {
+            background-color: #4F46E5 !important; /* Indigo color for high contrast */
+            color: white !important;
+            text-shadow: none !important;
+        }
+
+        /* For Firefox */
+        ::-moz-selection {
+            background-color: #4F46E5 !important;
+            color: white !important;
+            text-shadow: none !important;
+        }
+
+        /* Make sure DataTables doesn't override our selection styles */
+        table.dataTable tbody tr.selected,
+        table.dataTable tbody tr.selected:hover {
+            background-color: #4F46E5 !important;
+            color: white !important;
+        }
+
+        /* Ensure text remains visible when selected in dark mode */
+        table.dataTable tbody tr td {
+            -webkit-tap-highlight-color: #4F46E5;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col items-center p-6">
